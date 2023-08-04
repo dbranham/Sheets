@@ -15,4 +15,5 @@ with AudioFile(audio_file_path) as f:
     
     print("Samplerate:", f.samplerate)
     print("Number of Channels:", f.num_channels)
+    print("hi")
     
