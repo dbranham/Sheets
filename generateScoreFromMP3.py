@@ -59,11 +59,11 @@ def buildScoreFromMP3(filePath):
     for i in range(0, len(freqs)):
         currentNoteFrames += 1
 
-        # loop through each note in chromagram at frame i
+        # loop through each note in chromagram at frame i, generate running total of intensity for each note
         for j in range(0, 12):
             currentChord[j] += chromagram[j][i]
 
-        # if frame # equals next onset frame, add chord to score
+        # if current frame equals next onset frame, add chord to score
         if i == onsetDetectionTimes[onsetDetectionTimesFrameCounter]:
             noteDurationFloat = float(currentNoteFrames) / quarterNoteFrames
             noteDurationRational = Fraction(noteDurationFloat).limit_denominator(1)
@@ -71,14 +71,14 @@ def buildScoreFromMP3(filePath):
             if noteDurationRational != 0:
                 midiValues = []
 
-                # average values in currentChord list, then add then to chord if value is above a threshold
+                # normalize values in currentChord list, then add then to chord if value is above a threshold
                 for note in range(0, 12):
                     normalizedNoteIntensity = currentChord[note] / currentNoteFrames
                     if normalizedNoteIntensity > 0.3:
                         midiValues.append(60 + note)
 
+                # add rest instead of a chord if no notes in chord
                 if len(midiValues) == 0: 
-                    # add rest instead of a chord if no notes in chord
                     midiValues.append(0)
 
                 part.add_chord(Chord(midiValues, noteDurationRational))
