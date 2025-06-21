@@ -11,7 +11,7 @@ from musicscore.score import Score
 from musicscore.staff import Staff
 from musicscore.voice import Voice
 
-def buildScoreFromChroma(filePath):
+def buildScoreFromMP3(filePath):
     # Create score
     score = Score()
     part = score.add_child(Part('P1', name='Part 1'))
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     filename = "Reference Scales_On C.mp3"
     filePath = Path(str(Path(__file__).parent) + "/" + filename)
 
-    score = buildScoreFromChroma(filePath)
+    score = buildScoreFromMP3(filePath)
 
     xml_path = filePath.with_suffix('.xml')
     score.export_xml(xml_path)
