@@ -1,7 +1,5 @@
 import librosa
-import matplotlib.pyplot as plt
 import numpy as np
-import time
 from pathlib import Path
 from fractions import Fraction
 
@@ -13,27 +11,16 @@ from musicscore.score import Score
 from musicscore.staff import Staff
 from musicscore.voice import Voice
 
-import csv
-
-def getValuesAtFrameStr(frame, chroma):
-    returnStr = ''
-    binNotes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
-
-    for i in range(0,12):
-        returnStr += binNotes[i]
-        returnStr += ': '
-        returnStr += str(chroma[i][frame-5])
-        returnStr += ', '
-
-    return returnStr
-
-def buildScoreFromChroma(y, sr):
+def buildScoreFromChroma(filePath):
     # Create score
     score = Score()
     part = score.add_child(Part('P1', name='Part 1'))
     # measure = part.add_child(Measure(number=1))
     # staff = measure.add_child(Staff(number=1))
     # voice = staff.add_child(Voice(number=1))
+
+    # Load file
+    y, sr = librosa.load(filePath)
 
     # Probablistic YIN
     freqs, voiced_flag, voiced_probs = librosa.pyin(
@@ -44,48 +31,50 @@ def buildScoreFromChroma(y, sr):
     
     times = librosa.times_like(freqs)
     tempo = librosa.feature.tempo(y=y, sr=sr)
+
+    # get onset detecion times, append last frame
+    onsetDetectionTimes = np.append(
+        librosa.onset.onset_detect(
+            y=y, 
+            sr=sr, 
+            units='frames'), 
+        len(freqs))
     
-     # Harmonic content extraction
+    # Harmonic content extraction
     y_harmonic, y_percussive = librosa.effects.hpss(y)
 
     # use Constant Q Transform to calculate Pitch Class Profile (PCP), normalized
-    chromagram = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, n_octaves=7)
-
-    # chromagramTransposed = list(map(list, zip(*chromagram)))
-    # for i in range(0,len(voiced_probs)):
-    #     chromagramTransposed[i].append(voiced_probs[i])
-    #     chromagramTransposed[i].append(voiced_flag[i])
-
-    # with open('chromagramTransposed.csv', 'w', newline='') as f:
-    #     writer = csv.writer(f)
-    #     writer.writerows(chromagramTransposed)
+    chromagram = librosa.feature.chroma_cqt(
+        y=y_harmonic, 
+        sr=sr, 
+        n_octaves=7)
 
     quarterNoteInSeconds = 60.0 / float(tempo[0])
     quarterNoteFrames = np.round(quarterNoteInSeconds / times[1])
-    # binNotes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
-    newChordBool = [False] * 12
-    currentChordBool = [False] * 12
     currentNoteFrames = 0
+    currentChord = [0] * 12
+    onsetDetectionTimesFrameCounter = 0
 
+    # loop through each frame
     for i in range(0, len(freqs)):
         currentNoteFrames += 1
-        newChordBool = [False] * 12
 
+        # loop through each note in chromagram at frame i
         for j in range(0, 12):
-            if chromagram[j][i] > 0.25:
-                newChordBool[j] = True
+            currentChord[j] += chromagram[j][i]
 
-        if newChordBool != currentChordBool and voiced_probs[i] > 0.7:
-            # New note, add current note to score if note duration is at least a quarter note
-
+        # if frame # equals next onset frame, add chord to score
+        if i == onsetDetectionTimes[onsetDetectionTimesFrameCounter]:
             noteDurationFloat = float(currentNoteFrames) / quarterNoteFrames
             noteDurationRational = Fraction(noteDurationFloat).limit_denominator(1)
 
             if noteDurationRational != 0:
-                # Create list of midi values in chord
                 midiValues = []
+
+                # average values in currentChord list, then add then to chord if value is above a threshold
                 for note in range(0, 12):
-                    if currentChordBool[note]:
+                    normalizedNoteIntensity = currentChord[note] / currentNoteFrames
+                    if normalizedNoteIntensity > 0.3:
                         midiValues.append(60 + note)
 
                 if len(midiValues) == 0: 
@@ -93,24 +82,20 @@ def buildScoreFromChroma(y, sr):
                     midiValues.append(0)
 
                 part.add_chord(Chord(midiValues, noteDurationRational))
-                print(i, currentNoteFrames)
-                currentNoteFrames = 0
 
-            currentChordBool = newChordBool
+            # next onset frame
+            onsetDetectionTimesFrameCounter += 1
+            currentNoteFrames = 0
+            currentChord = [0] * 12
 
     return score
 
 if __name__ == '__main__':
     filename = "Reference Scales_On C.mp3"
     filePath = Path(str(Path(__file__).parent) + "/" + filename)
-    outputDirectory = Path(__file__).parent
 
-    print("Loading file: %s" % filename)
-    y, sr = librosa.load(filePath)
-
-    score = buildScoreFromChroma(y, sr)
+    score = buildScoreFromChroma(filePath)
 
     xml_path = filePath.with_suffix('.xml')
     score.export_xml(xml_path)
-    print("XML saved to: ", xml_path)
     
