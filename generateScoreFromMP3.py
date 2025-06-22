@@ -11,7 +11,7 @@ from musicscore.score import Score
 from musicscore.staff import Staff
 from musicscore.voice import Voice
 
-def buildScoreFromMP3(filePath):
+def buildScoreFromMP3(filename):
     # Create score
     score = Score()
     part = score.add_child(Part('P1', name='Part 1'))
@@ -20,7 +20,7 @@ def buildScoreFromMP3(filePath):
     # voice = staff.add_child(Voice(number=1))
 
     # Load file
-    y, sr = librosa.load(filePath)
+    y, sr = librosa.load(filename)
 
     # Probablistic YIN
     freqs, voiced_flag, voiced_probs = librosa.pyin(
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     filename = "Reference Scales_On C.mp3"
     filePath = Path(str(Path(__file__).parent) + "/" + filename)
 
-    score = buildScoreFromMP3(filePath)
+    score = buildScoreFromMP3(filename)
 
     xml_path = filePath.with_suffix('.xml')
     score.export_xml(xml_path)
